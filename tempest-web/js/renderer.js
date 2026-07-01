@@ -6,11 +6,22 @@
 // the visible canvas regardless of GAME_WIDTH/GAME_HEIGHT.
 
 import { GAME_WIDTH, GAME_HEIGHT, LANE_COUNT, RIM_RADIUS, BLASTER_FLASH_DURATION_MS } from './config.js';
-import { getRimPosition, getLaneCenterPosition } from './geometry.js';
+import {
+  getRimPosition,
+  getLaneCenterPosition,
+  getActiveArenaBoundaryCount,
+  isActiveArenaClosed,
+} from './geometry.js';
 
 const TUBE_CENTER_Y_RATIO = 0.47;
 const RING_DEPTH_FRACTIONS = [0.15, 0.35, 0.6, 1.0];
 const MIN_ENTITY_SCALE = 0.45;
+// Open arenas (U/W/Line) have a real far wall, not an infinite vanishing
+// point, so their spokes converge to a small scaled copy of the rim instead
+// of a single pixel (matching reference cabinet footage of open levels).
+// Closed arenas (Circle/Box) keep the single-point convergence exactly as
+// before - Circle's pixel-parity with the pre-refactor build depends on it.
+const OPEN_ARENA_VANISHING_FRACTION = 0.06;
 
 let ctx = null;
 
@@ -68,25 +79,41 @@ function drawBlasterFlash(blasterFlashMs) {
 
 function drawPlaceholderTube(player) {
   const { cx, cy, radius } = getTubeGeometry();
+  const boundaryCount = getActiveArenaBoundaryCount();
+  const closed = isActiveArenaClosed();
 
+  // Rings are scaled copies of the rim path itself (not forced circles), so
+  // Box/U/W/Line read as nested squares/U's/W's/lines instead of circles.
   ctx.strokeStyle = 'rgba(51, 255, 240, 0.35)';
   ctx.lineWidth = 1.5;
   for (const fraction of RING_DEPTH_FRACTIONS) {
     ctx.beginPath();
-    ctx.arc(cx, cy, radius * fraction, 0, Math.PI * 2);
+    for (let i = 0; i < boundaryCount; i += 1) {
+      const pos = getRimPosition(i, LANE_COUNT, cx, cy, radius * fraction);
+      if (i === 0) ctx.moveTo(pos.x, pos.y);
+      else ctx.lineTo(pos.x, pos.y);
+    }
+    if (closed) ctx.closePath();
     ctx.stroke();
   }
 
   // The two spokes bounding the player's current lane light up fully, so the
-  // active lane reads clearly - the rest stay dim.
-  const litSpokes = player ? new Set([player.laneIndex, (player.laneIndex + 1) % LANE_COUNT]) : new Set();
+  // active lane reads clearly - the rest stay dim. Closed arenas wrap the
+  // right boundary back to 0; open arenas have a real, distinct boundary N
+  // (rimBoundaries has N+1 entries), so no wrap is needed there.
+  let litSpokes = new Set();
+  if (player) {
+    const rightBoundary = closed ? (player.laneIndex + 1) % boundaryCount : player.laneIndex + 1;
+    litSpokes = new Set([player.laneIndex, rightBoundary]);
+  }
 
-  for (let i = 0; i < LANE_COUNT; i += 1) {
+  for (let i = 0; i < boundaryCount; i += 1) {
     const pos = getRimPosition(i, LANE_COUNT, cx, cy, radius);
+    const nearPos = closed ? { x: cx, y: cy } : getRimPosition(i, LANE_COUNT, cx, cy, radius * OPEN_ARENA_VANISHING_FRACTION);
     ctx.strokeStyle = litSpokes.has(i) ? '#8dfff5' : 'rgba(51, 255, 240, 0.35)';
     ctx.lineWidth = litSpokes.has(i) ? 2.5 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
+    ctx.moveTo(nearPos.x, nearPos.y);
     ctx.lineTo(pos.x, pos.y);
     ctx.stroke();
   }
@@ -97,12 +124,17 @@ function drawPoles(poles) {
 
   const { cx, cy, radius } = getTubeGeometry();
 
+  const closed = isActiveArenaClosed();
+
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 3;
   for (const pole of poles) {
     const tip = getLaneCenterPosition(pole.laneIndex, LANE_COUNT, cx, cy, toScreenRadius(pole.length, radius));
+    const base = closed
+      ? { x: cx, y: cy }
+      : getLaneCenterPosition(pole.laneIndex, LANE_COUNT, cx, cy, radius * OPEN_ARENA_VANISHING_FRACTION);
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
+    ctx.moveTo(base.x, base.y);
     ctx.lineTo(tip.x, tip.y);
     ctx.stroke();
   }

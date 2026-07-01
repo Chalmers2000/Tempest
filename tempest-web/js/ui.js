@@ -13,10 +13,13 @@ import {
 } from './difficultyProfiles.js';
 
 const POLES_STORAGE_KEY = 'tempest.polesEnabled';
+const SHAPE_STORAGE_KEY = 'tempest.arenaShape';
+const DEFAULT_SHAPE_ID = 'circle';
 
 let elements = null;
 let selectedProfileName = 'Standard';
 let polesEnabled = false;
+let selectedShapeId = DEFAULT_SHAPE_ID;
 
 export function initUI() {
   elements = {
@@ -25,6 +28,7 @@ export function initUI() {
     level: document.getElementById('hudLevel'),
     blaster: document.getElementById('hudBlaster'),
     profile: document.getElementById('hudProfile'),
+    shape: document.getElementById('hudShape'),
     titleOverlay: document.getElementById('titleOverlay'),
     gameOverOverlay: document.getElementById('gameOverOverlay'),
     pauseOverlay: document.getElementById('pauseOverlay'),
@@ -32,11 +36,12 @@ export function initUI() {
     finalScore: document.getElementById('finalScore'),
     levelClearBonus: document.getElementById('levelClearBonus'),
     difficultyPanel: document.getElementById('difficultyPanel'),
-    profileButtons: Array.from(document.querySelectorAll('.profile-button')),
+    profileButtons: Array.from(document.querySelectorAll('#profileSelector .profile-button')),
     customPanel: document.getElementById('customPanel'),
     customEnemySpeed: document.getElementById('customEnemySpeed'),
     customSpawnRate: document.getElementById('customSpawnRate'),
     polesToggle: document.getElementById('polesToggle'),
+    shapeButtons: Array.from(document.querySelectorAll('.shape-button')),
   };
 
   // The difficulty panel sits inside the title overlay, and any click on the
@@ -46,6 +51,7 @@ export function initUI() {
   elements.difficultyPanel.addEventListener('mousedown', (e) => e.stopPropagation());
 
   initDifficultyPanel();
+  initShapePanel();
 
   updateHUD({
     score: 0,
@@ -53,6 +59,7 @@ export function initUI() {
     level: 1,
     blasterCharges: START_BLASTER_CHARGES,
     profileName: selectedProfileName,
+    shapeLabel: getSelectedShapeLabel(),
   });
 }
 
@@ -100,6 +107,55 @@ export function getPolesEnabled() {
   return polesEnabled;
 }
 
+function initShapePanel() {
+  const validShapeIds = new Set(elements.shapeButtons.map((button) => button.dataset.shape));
+  selectedShapeId = loadSavedShapeId(validShapeIds);
+
+  for (const button of elements.shapeButtons) {
+    button.addEventListener('click', () => selectShape(button.dataset.shape));
+  }
+
+  refreshShapeUI();
+}
+
+function loadSavedShapeId(validShapeIds) {
+  try {
+    const stored = localStorage.getItem(SHAPE_STORAGE_KEY);
+    return validShapeIds.has(stored) ? stored : DEFAULT_SHAPE_ID;
+  } catch {
+    return DEFAULT_SHAPE_ID;
+  }
+}
+
+function saveShapeId(id) {
+  try {
+    localStorage.setItem(SHAPE_STORAGE_KEY, id);
+  } catch {
+    // localStorage unavailable - selection just won't persist.
+  }
+}
+
+function selectShape(id) {
+  selectedShapeId = id;
+  saveShapeId(id);
+  refreshShapeUI();
+}
+
+function refreshShapeUI() {
+  for (const button of elements.shapeButtons) {
+    button.classList.toggle('active', button.dataset.shape === selectedShapeId);
+  }
+}
+
+export function getSelectedShapeId() {
+  return selectedShapeId;
+}
+
+export function getSelectedShapeLabel() {
+  const button = elements.shapeButtons.find((b) => b.dataset.shape === selectedShapeId);
+  return button ? button.textContent : 'Circle';
+}
+
 function selectProfile(name) {
   selectedProfileName = name;
   saveProfileName(name);
@@ -142,6 +198,7 @@ export function updateHUD(data) {
   elements.level.textContent = `Level: ${data.level}`;
   elements.blaster.textContent = `Blaster: ${data.blasterCharges}`;
   elements.profile.textContent = `Profile: ${data.profileName}`;
+  elements.shape.textContent = `Shape: ${data.shapeLabel}`;
 }
 
 export function setFinalScore(score) {

@@ -18,9 +18,13 @@ import {
   LEVEL_KILL_QUOTA_BASE,
   LEVEL_KILL_QUOTA_PER_LEVEL,
   LEVEL_CLEAR_BONUS_PER_LEVEL,
+  LANE_COUNT,
 } from './config.js';
 import { GameStates, setState, getState, getStateElapsedMs, onStateChange } from './gameState.js';
 import { initRenderer, render } from './renderer.js';
+import { setActiveArena } from './geometry.js';
+import { compileArena } from './arena.js';
+import { ARENA_SHAPES, ARENA_SHAPE_ORDER } from './arenaShapes.js';
 import {
   initUI,
   updateHUD,
@@ -28,6 +32,8 @@ import {
   setFinalScore,
   setLevelClearBonus,
   getSelectedProfileName,
+  getSelectedShapeId,
+  getSelectedShapeLabel,
   getPolesEnabled,
 } from './ui.js';
 import { getProfile } from './difficultyProfiles.js';
@@ -78,6 +84,7 @@ let levelTuning = null;
 let killsThisLevel = 0;
 let levelKillQuota = 0;
 let polesEnabled = false;
+let currentShapeId = null;
 
 function boot() {
   canvas = document.getElementById('gameCanvas');
@@ -85,6 +92,12 @@ function boot() {
   initRenderer(canvas);
   initUI();
   attachInput(canvas);
+
+  // Circle so the title-screen tube has something to draw before the first
+  // startGame() call installs whatever shape the player has selected.
+  setActiveArena(compileArena(ARENA_SHAPES.circle, LANE_COUNT));
+
+  setupArenaSelfTest();
 
   // Pointer Lock must be requested synchronously within (or very close to)
   // the click gesture to be reliably granted - the deferred, flag-based
@@ -128,6 +141,7 @@ function startLoop() {
       level,
       blasterCharges: player ? player.blasterCharges : START_BLASTER_CHARGES,
       profileName: activeProfile ? activeProfile.name : getSelectedProfileName(),
+      shapeLabel: currentShapeId ? ARENA_SHAPES[currentShapeId].label : getSelectedShapeLabel(),
     });
     render(getState(), player, projectiles, enemies, blasterFlashMs, poles);
     requestAnimationFrame(frame);
@@ -290,8 +304,17 @@ function onPlayerHit() {
   setState(player.lives > 0 ? GameStates.PLAYER_DEATH : GameStates.GAME_OVER);
 }
 
+// Picks a random shape different from the one just cleared, so levels never
+// repeat the same shape back-to-back.
+function pickNextShapeId(excludeId) {
+  const candidates = ARENA_SHAPE_ORDER.filter((id) => id !== excludeId);
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function advanceLevel() {
   level += 1;
+  currentShapeId = pickNextShapeId(currentShapeId);
+  setActiveArena(compileArena(ARENA_SHAPES[currentShapeId], LANE_COUNT));
   levelTuning = computeLevelTuning(activeProfile, level);
   spawnDirector = createSpawnDirector(levelTuning);
   enemies = [];
@@ -305,6 +328,10 @@ function advanceLevel() {
 
 function startGame() {
   activeProfile = getProfile(getSelectedProfileName());
+  // ui.js already validates the selection against known shape ids, but this
+  // stays as a defensive fallback so a corrupted id can never crash startGame().
+  currentShapeId = ARENA_SHAPES[getSelectedShapeId()] ? getSelectedShapeId() : 'circle';
+  setActiveArena(compileArena(ARENA_SHAPES[currentShapeId], LANE_COUNT));
   player = createPlayer(activeProfile);
   projectiles = [];
   enemies = [];
@@ -320,6 +347,25 @@ function startGame() {
   blasterFlashMs = 0;
   setState(GameStates.LEVEL_START);
   setState(GameStates.PLAYING);
+}
+
+// Dev-only console harness for verifying arena compilation (Arena_Geometry_Test_Plan.md
+// §6), active only behind ?selftest so it never touches normal play. Dynamic
+// imports keep this path isolated from the module graph startGame() already uses.
+function setupArenaSelfTest() {
+  if (!new URLSearchParams(window.location.search).has('selftest')) return;
+
+  Promise.all([import('./arena.js'), import('./arenaShapes.js')]).then(
+    ([{ compileArena: compile, totalLength }, { ARENA_SHAPES: shapes, ARENA_SHAPE_ORDER: order }]) => {
+      window.__arenaSelfTest = {
+        compileArena: compile,
+        totalLength,
+        ARENA_SHAPES: shapes,
+        ARENA_SHAPE_ORDER: order,
+        LANE_COUNT,
+      };
+    }
+  );
 }
 
 boot();
