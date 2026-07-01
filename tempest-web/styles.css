@@ -1,0 +1,98 @@
+:root {
+  --bg-color: #05060a;
+  --neon-cyan: #33fff0;
+  --neon-magenta: #ff33cc;
+  --neon-yellow: #ffee33;
+  --hud-color: #7dfcff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-color);
+  overflow: hidden;
+  font-family: "Consolas", "Courier New", monospace;
+  color: var(--hud-color);
+}
+
+#gameContainer {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#gameCanvas {
+  background: #000;
+  box-shadow: 0 0 24px rgba(51, 255, 240, 0.25);
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+#hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+  text-shadow: 0 0 6px rgba(125, 252, 255, 0.6);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+  flex-wrap: wrap;
+}
+
+.hud-item {
+  white-space: nowrap;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  text-align: center;
+  text-shadow: 0 0 8px rgba(51, 255, 240, 0.8);
+}
+
+.overlay h1 {
+  font-size: 2.5rem;
+  color: var(--neon-magenta);
+  margin: 0;
+  letter-spacing: 2px;
+}
+
+.overlay .controls-hint {
+  color: var(--neon-cyan);
+  font-size: 1rem;
+  max-width: 480px;
+}
+
+.overlay .start-hint {
+  color: var(--neon-yellow);
+  font-size: 1.1rem;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

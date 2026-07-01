@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tempest-Style Web Shooter</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+      <div id="hudScore" class="hud-item">Score: 0</div>
+      <div id="hudLives" class="hud-item">Lives: 3</div>
+      <div id="hudLevel" class="hud-item">Level: 1</div>
+      <div id="hudBlaster" class="hud-item">Blaster: 3</div>
+      <div id="hudProfile" class="hud-item">Profile: Standard</div>
+    </div>
+
+    <div id="titleOverlay" class="overlay">
+      <h1>TEMPEST-STYLE WEB SHOOTER</h1>
+      <p class="controls-hint">
+        Move mouse left/right to rotate &middot; Left click to shoot &middot; Space = Super Blaster
+      </p>
+      <p class="start-hint">Click to Start</p>
+    </div>
+
+    <div id="gameOverOverlay" class="overlay hidden">
+      <h1>GAME OVER</h1>
+      <p id="finalScore">Final Score: 0</p>
+      <p class="start-hint">Click to Restart</p>
+    </div>
+
+    <div id="pauseOverlay" class="overlay hidden">
+      <h1>PAUSED</h1>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
