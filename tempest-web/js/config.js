@@ -4,8 +4,13 @@ export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const FIXED_TIMESTEP_MS = 1000 / 60;
 
-export const LANE_COUNT = 19;
+export const LANE_COUNT = 16;
 export const RIM_RADIUS = 360;
+
+// Polygon resolution for the circle arena's rim path (arenaShapes.js). Keeps
+// the circle on the same "polygon path" code path as the other shapes while
+// staying visually indistinguishable from a true circle.
+export const CIRCLE_PATH_SEGMENTS = 64;
 
 export const START_LIVES = 3;
 export const START_BLASTER_CHARGES = 3;

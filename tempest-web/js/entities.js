@@ -3,7 +3,7 @@
 // tuning at creation time so update functions don't need a profile threaded
 // through every call.
 
-import { wrapLane } from './geometry.js';
+import { stepLane, isActiveArenaClosed } from './geometry.js';
 import {
   LANE_COUNT,
   RIM_RADIUS,
@@ -46,7 +46,7 @@ export function updatePlayerMovement(player, deltaX) {
   let steps = 0;
   while (Math.abs(player.turnAccumulator) >= player.laneStepThreshold && steps < MAX_LANE_STEPS_PER_FRAME) {
     const direction = player.turnAccumulator > 0 ? 1 : -1;
-    player.laneIndex = wrapLane(player.laneIndex + direction, LANE_COUNT);
+    player.laneIndex = stepLane(player.laneIndex, direction, LANE_COUNT);
     player.turnAccumulator -= direction * player.laneStepThreshold;
     steps += 1;
   }
@@ -113,8 +113,15 @@ export function updateEnemy(enemy, dt, onFire) {
     enemy.jumpTimerMs -= dt;
     if (enemy.jumpTimerMs <= 0) {
       enemy.jumpTimerMs += enemy.jumpIntervalMs;
-      const direction = Math.random() < 0.5 ? -1 : 1;
-      enemy.laneIndex = wrapLane(enemy.laneIndex + direction, LANE_COUNT);
+      let direction = Math.random() < 0.5 ? -1 : 1;
+      // On an open arena, a jump that would clamp against an end wastes the
+      // jump entirely - pick the in-bounds direction instead so jumpers at
+      // the ends keep moving rather than stalling.
+      if (!isActiveArenaClosed()) {
+        if (enemy.laneIndex === 0) direction = 1;
+        else if (enemy.laneIndex === LANE_COUNT - 1) direction = -1;
+      }
+      enemy.laneIndex = stepLane(enemy.laneIndex, direction, LANE_COUNT);
     }
   }
 

@@ -12,7 +12,7 @@ No install step, no Python, no build tooling required.
 
 ## Controls
 
-- **Move:** Mouse left/right (rotates around the tube's rim, wraps at the ends)
+- **Move:** Mouse left/right (glides around the tube's rim; wraps at the ends on Circle/Box, clamps at both ends on U/W/Line)
 - **Shoot:** Hold left mouse button (fires repeatedly, capped by cooldown)
 - **Super Blaster:** Space bar (clears enemies, enemy projectiles, and poles; limited charges, refills each level)
 - **Pause:** P (freezes the game; Esc resumes)
@@ -32,6 +32,13 @@ Your last-selected profile and Custom slider values persist across reloads via `
 
 ![Start Screen](images/start_screenshot.jpg)
 
+## Arena Shapes
+
+Choose the tube's cross-section on the title screen, next to the difficulty selector:
+- **Circle** / **Box** — closed loops; movement wraps around continuously
+- **U** / **W** / **Line** — open paths; movement clamps at both ends instead of wrapping
+
+The selection applies to the whole run (all levels use the same shape) and persists across reloads via `localStorage`, defaulting to Circle.
 
 ## Progression
 
@@ -56,11 +63,12 @@ A toggle on the title screen ("Enemy Poles"), **off by default**. When enabled, 
 
 - `tempest-web/js/config.js` — core tuning constants (speeds, cooldowns, timings, scoring, poles) — see the table below
 - `tempest-web/js/difficultyProfiles.js` — the four difficulty profiles and their per-profile scaling/caps/unlock levels
+- `tempest-web/js/arenaShapes.js` — the five arena shapes' rim path data
+- `tempest-web/js/arena.js` — compiles a shape into evenly arc-length-spaced lane centers/boundaries
 
 ## Known Limitations
 
 - Mute (M) is stubbed but not wired to input — `tempest-web/js/audio.js`'s sound hooks are silent no-ops (called at the right moments, ready for real sound assets).
-- Single tube shape (circle); the original game varies tube geometry per level.
 - No gamepad support.
 
 ## Browser Tested
@@ -76,7 +84,7 @@ All constants below live in `tempest-web/js/config.js` unless noted otherwise. E
 | `GAME_WIDTH` | 1280 | Canvas width (px) |
 | `GAME_HEIGHT` | 720 | Canvas height (px) |
 | `FIXED_TIMESTEP_MS` | 1000/60 (~16.67) | Simulation step duration (ms) |
-| `LANE_COUNT` | 19 | Number of lanes around the tube |
+| `LANE_COUNT` | 16 | Number of lanes around the tube |
 | `RIM_RADIUS` | 360 | Logical gameplay depth scale (0 = center, this = rim). Rendering has its own independent screen-space scale in `renderer.js` |
 | `START_LIVES` | 3 | Starting lives |
 | `START_BLASTER_CHARGES` | 3 | Fallback blaster-charge display before a run starts (the real starting value per run comes from the profile's `blasterChargeStart`) |
