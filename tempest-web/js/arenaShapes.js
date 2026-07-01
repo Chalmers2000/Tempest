@@ -31,36 +31,37 @@ const SQUARE_PATH = [
   { x: 0, y: 0 },
 ];
 
-// Straight across the *bottom* edge of the box, not through its center.
-// The vanishing point sits at normalized (0.5, 0.5) for every shape (§4's
-// pixel mapping), so a rim path has to stay clear of that point or spokes
-// on either side of it collapse to near-zero length, reading as a flat
-// line instead of a receding tube. Anchoring at the far edge (like the
-// square's bottom edge) gives the same "vanishing point above, wide rim
-// below" fan/perspective as the other shapes. Open (not closed): both
-// endpoints are real, distinct boundaries that movement clamps at instead
-// of wrapping.
-// Point order (not just position) matters here: increasing lane index walks
-// the path in listed order, and entities.js's mouse-direction convention was
-// tuned against the circle's cos/sin winding (increasing index = clockwise).
-// Listing right-to-left keeps "mouse right -> ship right" consistent with
-// the circle instead of inverted.
+// Full box width, but at y=0.8 rather than the very bottom edge (y=1). Lane
+// width is really the *angle* each lane subtends at the vanishing point, and
+// that angle grows as the rim gets closer to the vanishing point's height
+// (0.5) - y=1 only subtends ~90°, cramping every lane, while y=0.8 subtends
+// ~120°, much closer to how roomy Circle/Box's full 360° spread feels. Not
+// closer still: near y=0.5 the two halves of the line collapse back toward
+// the flat, edge-on look this shape started with. Point order (not just
+// position) matters: increasing lane index walks the path in listed order,
+// and entities.js's mouse-direction convention was tuned against the
+// circle's cos/sin winding (increasing index = clockwise) - listing
+// right-to-left keeps "mouse right -> ship right" consistent with the
+// circle instead of inverted. Open (not closed): both endpoints are real,
+// distinct boundaries that movement clamps at instead of wrapping.
 const LINE_PATH = [
-  { x: 1, y: 1 },
-  { x: 0, y: 1 },
+  { x: 1, y: 0.8 },
+  { x: 0, y: 0.8 },
 ];
 
 // Straight arms down to a rounded (not flat) bottom curve that dips deeper
 // in the middle than at the arm sides - reads as an actual "U" instead of a
-// three-sided box. Open at the top (arms don't reach past the vanishing
-// point's y=0.5); same right-to-left winding as the other open shapes for
-// consistent mouse feel.
+// three-sided box. Full box width (like Circle/Box's full extent, not a
+// shrunken inset) so lanes get the same angular spread/screen real estate;
+// arm tops stay just below y=0.5 (not past it) so the vanishing point stays
+// clear. Same right-to-left winding as the other open shapes for consistent
+// mouse feel.
 function buildUPath() {
-  const armTopY = 0.6;
-  const curveTopY = 0.8;
+  const armTopY = 0.55;
+  const curveTopY = 0.75;
   const curveBottomY = 1.0;
-  const leftX = 0.2;
-  const rightX = 0.8;
+  const leftX = 0;
+  const rightX = 1;
   const centerX = (leftX + rightX) / 2;
   const radiusX = (rightX - leftX) / 2;
   const radiusY = curveBottomY - curveTopY;
@@ -80,14 +81,15 @@ function buildUPath() {
 
 const U_PATH = buildUPath();
 
-// Two V-notches (a "W"): outer peaks, two valleys, and a shorter middle
-// peak - kept below y=0.5 like U so it never crosses the vanishing point.
+// Two V-notches (a "W"): outer peaks at the box's full width (matching U's
+// full-width extent), two valleys, and a shorter middle peak - kept below
+// y=0.5 like U so it never crosses the vanishing point.
 const W_PATH = [
-  { x: 0.85, y: 0.6 },
-  { x: 0.65, y: 1.0 },
+  { x: 1, y: 0.55 },
+  { x: 0.7, y: 1.0 },
   { x: 0.5, y: 0.75 },
-  { x: 0.35, y: 1.0 },
-  { x: 0.15, y: 0.6 },
+  { x: 0.3, y: 1.0 },
+  { x: 0, y: 0.55 },
 ];
 
 export const ARENA_SHAPES = {

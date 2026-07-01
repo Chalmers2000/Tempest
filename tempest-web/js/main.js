@@ -24,7 +24,7 @@ import { GameStates, setState, getState, getStateElapsedMs, onStateChange } from
 import { initRenderer, render } from './renderer.js';
 import { setActiveArena } from './geometry.js';
 import { compileArena } from './arena.js';
-import { ARENA_SHAPES } from './arenaShapes.js';
+import { ARENA_SHAPES, ARENA_SHAPE_ORDER } from './arenaShapes.js';
 import {
   initUI,
   updateHUD,
@@ -84,6 +84,7 @@ let levelTuning = null;
 let killsThisLevel = 0;
 let levelKillQuota = 0;
 let polesEnabled = false;
+let currentShapeId = null;
 
 function boot() {
   canvas = document.getElementById('gameCanvas');
@@ -140,7 +141,7 @@ function startLoop() {
       level,
       blasterCharges: player ? player.blasterCharges : START_BLASTER_CHARGES,
       profileName: activeProfile ? activeProfile.name : getSelectedProfileName(),
-      shapeLabel: getSelectedShapeLabel(),
+      shapeLabel: currentShapeId ? ARENA_SHAPES[currentShapeId].label : getSelectedShapeLabel(),
     });
     render(getState(), player, projectiles, enemies, blasterFlashMs, poles);
     requestAnimationFrame(frame);
@@ -303,8 +304,17 @@ function onPlayerHit() {
   setState(player.lives > 0 ? GameStates.PLAYER_DEATH : GameStates.GAME_OVER);
 }
 
+// Picks a random shape different from the one just cleared, so levels never
+// repeat the same shape back-to-back.
+function pickNextShapeId(excludeId) {
+  const candidates = ARENA_SHAPE_ORDER.filter((id) => id !== excludeId);
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 function advanceLevel() {
   level += 1;
+  currentShapeId = pickNextShapeId(currentShapeId);
+  setActiveArena(compileArena(ARENA_SHAPES[currentShapeId], LANE_COUNT));
   levelTuning = computeLevelTuning(activeProfile, level);
   spawnDirector = createSpawnDirector(levelTuning);
   enemies = [];
@@ -320,8 +330,8 @@ function startGame() {
   activeProfile = getProfile(getSelectedProfileName());
   // ui.js already validates the selection against known shape ids, but this
   // stays as a defensive fallback so a corrupted id can never crash startGame().
-  const shape = ARENA_SHAPES[getSelectedShapeId()] ?? ARENA_SHAPES.circle;
-  setActiveArena(compileArena(shape, LANE_COUNT));
+  currentShapeId = ARENA_SHAPES[getSelectedShapeId()] ? getSelectedShapeId() : 'circle';
+  setActiveArena(compileArena(ARENA_SHAPES[currentShapeId], LANE_COUNT));
   player = createPlayer(activeProfile);
   projectiles = [];
   enemies = [];

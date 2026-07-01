@@ -38,7 +38,7 @@ Choose the tube's cross-section on the title screen, next to the difficulty sele
 - **Circle** / **Box** — closed loops; movement wraps around continuously
 - **U** / **W** / **Line** — open paths; movement clamps at both ends instead of wrapping
 
-The selection applies to the whole run (all levels use the same shape) and persists across reloads via `localStorage`, defaulting to Circle.
+Your selection is the shape for level 1; each level after that switches to a random shape (never repeating the one you just cleared). The title-screen selection persists across reloads via `localStorage`, defaulting to Circle.
 
 ## Progression
 
