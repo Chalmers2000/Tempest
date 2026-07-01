@@ -1,5 +1,6 @@
-// Difficulty profile definitions. Consumed by the spawn director and player
-// tuning once those systems come online (Phase 7).
+// Difficulty profile definitions, consumed by player tuning, the spawn
+// director, and level progression. Custom overrides + the last-selected
+// profile persist to localStorage.
 
 export const DIFFICULTY_PROFILES = {
   Relaxed: {
@@ -18,6 +19,8 @@ export const DIFFICULTY_PROFILES = {
     minSpawnIntervalMs: 700,
     maxEnemySpeed: 260,
     maxEnemyProjectiles: 4,
+    jumperUnlockLevel: 2,
+    shooterUnlockLevel: 4,
   },
   Standard: {
     name: 'Standard',
@@ -35,6 +38,8 @@ export const DIFFICULTY_PROFILES = {
     minSpawnIntervalMs: 500,
     maxEnemySpeed: 340,
     maxEnemyProjectiles: 6,
+    jumperUnlockLevel: 1,
+    shooterUnlockLevel: 2,
   },
   Arcade: {
     name: 'Arcade',
@@ -52,6 +57,8 @@ export const DIFFICULTY_PROFILES = {
     minSpawnIntervalMs: 320,
     maxEnemySpeed: 480,
     maxEnemyProjectiles: 10,
+    jumperUnlockLevel: 1,
+    shooterUnlockLevel: 1,
   },
   Custom: {
     name: 'Custom',
@@ -69,11 +76,52 @@ export const DIFFICULTY_PROFILES = {
     minSpawnIntervalMs: 500,
     maxEnemySpeed: 340,
     maxEnemyProjectiles: 6,
+    jumperUnlockLevel: 1,
+    shooterUnlockLevel: 2,
   },
 };
 
 export const DEFAULT_PROFILE_NAME = 'Standard';
 
+const PROFILE_STORAGE_KEY = 'tempest.difficultyProfile';
+const CUSTOM_STORAGE_KEY = 'tempest.customProfileOverrides';
+
 export function getProfile(name) {
-  return DIFFICULTY_PROFILES[name] ?? DIFFICULTY_PROFILES[DEFAULT_PROFILE_NAME];
+  const base = DIFFICULTY_PROFILES[name] ?? DIFFICULTY_PROFILES[DEFAULT_PROFILE_NAME];
+  if (base.name !== 'Custom') return base;
+  return { ...base, ...loadCustomOverrides() };
+}
+
+export function loadSavedProfileName() {
+  try {
+    const saved = localStorage.getItem(PROFILE_STORAGE_KEY);
+    return saved && DIFFICULTY_PROFILES[saved] ? saved : DEFAULT_PROFILE_NAME;
+  } catch {
+    return DEFAULT_PROFILE_NAME;
+  }
+}
+
+export function saveProfileName(name) {
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, name);
+  } catch {
+    // localStorage unavailable (private mode, etc.) - selection just won't persist.
+  }
+}
+
+export function loadCustomOverrides() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveCustomOverrides(overrides) {
+  try {
+    localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(overrides));
+  } catch {
+    // localStorage unavailable - custom sliders just won't persist.
+  }
 }

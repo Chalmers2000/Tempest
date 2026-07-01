@@ -1,12 +1,19 @@
-// DOM/HUD binding. Phase 1: overlay show/hide driven by game state, HUD
-// placeholders wired to static config defaults. Live values arrive as their
-// owning systems come online.
+// DOM/HUD binding: overlay show/hide driven by game state, HUD text driven
+// by live score/lives/level/blaster/profile data from main.js, plus the
+// title screen's difficulty profile selector (persisted to localStorage).
 
 import { GameStates } from './gameState.js';
 import { START_LIVES, START_BLASTER_CHARGES } from './config.js';
-import { DEFAULT_PROFILE_NAME } from './difficultyProfiles.js';
+import {
+  DIFFICULTY_PROFILES,
+  loadSavedProfileName,
+  saveProfileName,
+  loadCustomOverrides,
+  saveCustomOverrides,
+} from './difficultyProfiles.js';
 
 let elements = null;
+let selectedProfileName = 'Standard';
 
 export function initUI() {
   elements = {
@@ -18,16 +25,72 @@ export function initUI() {
     titleOverlay: document.getElementById('titleOverlay'),
     gameOverOverlay: document.getElementById('gameOverOverlay'),
     pauseOverlay: document.getElementById('pauseOverlay'),
+    levelClearOverlay: document.getElementById('levelClearOverlay'),
     finalScore: document.getElementById('finalScore'),
+    levelClearBonus: document.getElementById('levelClearBonus'),
+    difficultyPanel: document.getElementById('difficultyPanel'),
+    profileButtons: Array.from(document.querySelectorAll('.profile-button')),
+    customPanel: document.getElementById('customPanel'),
+    customEnemySpeed: document.getElementById('customEnemySpeed'),
+    customSpawnRate: document.getElementById('customSpawnRate'),
   };
+
+  // The difficulty panel sits inside the title overlay, and any click on the
+  // overlay is otherwise treated as "click to start" (input.js listens on
+  // window) - stop it here so picking a profile/dragging a slider doesn't
+  // also launch the game.
+  elements.difficultyPanel.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  initDifficultyPanel();
 
   updateHUD({
     score: 0,
     lives: START_LIVES,
     level: 1,
     blasterCharges: START_BLASTER_CHARGES,
-    profileName: DEFAULT_PROFILE_NAME,
+    profileName: selectedProfileName,
   });
+}
+
+function initDifficultyPanel() {
+  selectedProfileName = loadSavedProfileName();
+
+  const customOverrides = loadCustomOverrides();
+  elements.customEnemySpeed.value = customOverrides.enemySpeedScale ?? DIFFICULTY_PROFILES.Custom.enemySpeedScale;
+  elements.customSpawnRate.value = customOverrides.spawnRateScale ?? DIFFICULTY_PROFILES.Custom.spawnRateScale;
+
+  for (const button of elements.profileButtons) {
+    button.addEventListener('click', () => selectProfile(button.dataset.profile));
+  }
+
+  elements.customEnemySpeed.addEventListener('input', saveCustomSliderValues);
+  elements.customSpawnRate.addEventListener('input', saveCustomSliderValues);
+
+  refreshDifficultyPanelUI();
+}
+
+function selectProfile(name) {
+  selectedProfileName = name;
+  saveProfileName(name);
+  refreshDifficultyPanelUI();
+}
+
+function refreshDifficultyPanelUI() {
+  for (const button of elements.profileButtons) {
+    button.classList.toggle('active', button.dataset.profile === selectedProfileName);
+  }
+  setHidden(elements.customPanel, selectedProfileName !== 'Custom');
+}
+
+function saveCustomSliderValues() {
+  saveCustomOverrides({
+    enemySpeedScale: Number(elements.customEnemySpeed.value),
+    spawnRateScale: Number(elements.customSpawnRate.value),
+  });
+}
+
+export function getSelectedProfileName() {
+  return selectedProfileName;
 }
 
 export function updateHUD(data) {
@@ -39,11 +102,22 @@ export function updateHUD(data) {
   elements.profile.textContent = `Profile: ${data.profileName}`;
 }
 
+export function setFinalScore(score) {
+  if (!elements) return;
+  elements.finalScore.textContent = `Final Score: ${score}`;
+}
+
+export function setLevelClearBonus(bonus) {
+  if (!elements) return;
+  elements.levelClearBonus.textContent = `Bonus: +${bonus}`;
+}
+
 export function syncOverlaysToState(state) {
   if (!elements) return;
   setHidden(elements.titleOverlay, state !== GameStates.TITLE);
   setHidden(elements.gameOverOverlay, state !== GameStates.GAME_OVER);
   setHidden(elements.pauseOverlay, state !== GameStates.PAUSED);
+  setHidden(elements.levelClearOverlay, state !== GameStates.LEVEL_CLEAR);
 }
 
 function setHidden(element, hidden) {

@@ -1,11 +1,28 @@
-// Phase 4: enemy spawning + 3 enemy behaviors (crawler, jumper, shooter).
-// Collision/scoring/lives are still no-ops until Phase 5 - enemies that
-// reach the rim or get shot are just despawned for now.
+// Phase 7: difficulty profiles + progression. The selected profile (Relaxed/
+// Standard/Arcade/Custom) drives player tuning, enemy speed/spawn scaling,
+// enemy-type unlock gating, and aim assist; level progression is a kill-quota
+// clear that ramps profile-scaled tuning further each level.
 
-import { FIXED_TIMESTEP_MS } from './config.js';
-import { GameStates, setState, getState, onStateChange } from './gameState.js';
+import {
+  FIXED_TIMESTEP_MS,
+  START_LIVES,
+  START_BLASTER_CHARGES,
+  PLAYER_DEATH_DURATION_MS,
+  SCORE_BY_ENEMY_TYPE,
+  BLASTER_FLASH_DURATION_MS,
+  BLASTER_INVULN_MS,
+  ENEMY_SPAWN_INTERVAL_MS,
+  ENEMY_BASE_SPEED,
+  LEVEL_CLEAR_DURATION_MS,
+  LEVEL_KILL_QUOTA_BASE,
+  LEVEL_KILL_QUOTA_PER_LEVEL,
+  LEVEL_CLEAR_BONUS_PER_LEVEL,
+} from './config.js';
+import { GameStates, setState, getState, getStateElapsedMs, onStateChange } from './gameState.js';
 import { initRenderer, render } from './renderer.js';
-import { initUI, syncOverlaysToState } from './ui.js';
+import { initUI, updateHUD, syncOverlaysToState, setFinalScore, setLevelClearBonus, getSelectedProfileName } from './ui.js';
+import { getProfile } from './difficultyProfiles.js';
+import { playBlaster } from './audio.js';
 import {
   attachInput,
   getDeltaX,
@@ -18,18 +35,29 @@ import {
   createPlayer,
   updatePlayerMovement,
   updatePlayerCooldown,
+  updatePlayerInvulnerability,
   tryConsumePlayerShot,
+  tryConsumeBlasterCharge,
   createProjectile,
   updateProjectile,
   updateEnemy,
+  respawnPlayer,
 } from './entities.js';
 import { createSpawnDirector, updateSpawner } from './spawner.js';
+import { resolvePlayerShotsVsEnemies, resolveEnemyShotsVsPlayer, resolveEnemyRimReachVsPlayer } from './collision.js';
 
 let player = null;
 let canvas = null;
 let projectiles = [];
 let enemies = [];
 let spawnDirector = null;
+let score = 0;
+let level = 1;
+let blasterFlashMs = 0;
+let activeProfile = null;
+let levelTuning = null;
+let killsThisLevel = 0;
+let levelKillQuota = 0;
 
 function boot() {
   canvas = document.getElementById('gameCanvas');
@@ -49,6 +77,9 @@ function boot() {
 
   onStateChange((nextState) => {
     syncOverlaysToState(nextState);
+    if (nextState === GameStates.GAME_OVER) {
+      setFinalScore(score);
+    }
   });
 
   setState(GameStates.BOOT);
@@ -71,17 +102,48 @@ function startLoop() {
       accumulator -= FIXED_TIMESTEP_MS;
     }
 
-    render(getState(), player, projectiles, enemies);
+    updateHUD({
+      score,
+      lives: player ? player.lives : START_LIVES,
+      level,
+      blasterCharges: player ? player.blasterCharges : START_BLASTER_CHARGES,
+      profileName: activeProfile ? activeProfile.name : getSelectedProfileName(),
+    });
+    render(getState(), player, projectiles, enemies, blasterFlashMs);
     requestAnimationFrame(frame);
   }
 
   requestAnimationFrame(frame);
 }
 
+// Speed/spawn-rate ramp with level on top of the profile's own baseline,
+// capped by the profile's stated hard limits (maxEnemySpeed/minSpawnIntervalMs).
+function computeLevelTuning(profile, currentLevel) {
+  const levelIndex = currentLevel - 1;
+  const speedScale = profile.enemySpeedScale + profile.perLevelSpeedIncrement * levelIndex;
+  const spawnScale = profile.spawnRateScale + profile.perLevelSpawnIncrement * levelIndex;
+
+  return {
+    profile,
+    enemySpeedMultiplier: Math.min(speedScale, profile.maxEnemySpeed / ENEMY_BASE_SPEED),
+    enemyFireRateMultiplier: profile.enemyProjectileChanceScale,
+    spawnIntervalMs: Math.max(profile.minSpawnIntervalMs, ENEMY_SPAWN_INTERVAL_MS / spawnScale),
+    maxSimultaneousEnemies: profile.maxSimultaneousEnemies,
+    maxEnemyProjectiles: profile.maxEnemyProjectiles,
+    // aimAssistWindowMs is a forgiveness *time*; converting it via enemy speed
+    // gives "how far the enemy could have drifted and still count as a hit".
+    aimAssistTolerance: ENEMY_BASE_SPEED * (profile.aimAssistWindowMs / 1000),
+  };
+}
+
+function computeKillQuota(currentLevel) {
+  return LEVEL_KILL_QUOTA_BASE + LEVEL_KILL_QUOTA_PER_LEVEL * (currentLevel - 1);
+}
+
 function update(dt) {
   const deltaX = getDeltaX();
   const clicked = consumeClickEdge();
-  consumeSpaceEdge(); // reserved for Phase 6 (super blaster)
+  const spacePressed = consumeSpaceEdge();
 
   const state = getState();
 
@@ -92,34 +154,118 @@ function update(dt) {
     return;
   }
 
+  if (state === GameStates.GAME_OVER) {
+    if (clicked) {
+      startGame();
+    }
+    return;
+  }
+
+  if (state === GameStates.PLAYER_DEATH) {
+    if (getStateElapsedMs() >= PLAYER_DEATH_DURATION_MS) {
+      respawnPlayer(player);
+      setState(GameStates.PLAYING);
+    }
+    return;
+  }
+
+  if (state === GameStates.LEVEL_CLEAR) {
+    if (getStateElapsedMs() >= LEVEL_CLEAR_DURATION_MS) {
+      advanceLevel();
+      setState(GameStates.PLAYING);
+    }
+    return;
+  }
+
   if (state === GameStates.PLAYING) {
     updatePlayerMovement(player, deltaX);
     updatePlayerCooldown(player, dt);
+    updatePlayerInvulnerability(player, dt);
+    blasterFlashMs = Math.max(0, blasterFlashMs - dt);
 
     if (isFireHeld() && tryConsumePlayerShot(player)) {
       projectiles.push(createProjectile('player', player.laneIndex));
     }
 
+    if (spacePressed && tryConsumeBlasterCharge(player)) {
+      activateBlaster();
+    }
+
     for (const projectile of projectiles) {
       updateProjectile(projectile, dt);
     }
-    projectiles = projectiles.filter((projectile) => projectile.active);
 
-    updateSpawner(spawnDirector, dt, enemies);
+    updateSpawner(spawnDirector, dt, enemies, levelTuning, level);
     for (const enemy of enemies) {
       updateEnemy(enemy, dt, (firingEnemy) => {
-        projectiles.push(createProjectile('enemy', firingEnemy.laneIndex, firingEnemy.depth));
+        const activeEnemyShots = projectiles.filter((p) => p.owner === 'enemy' && p.active).length;
+        if (activeEnemyShots < levelTuning.maxEnemyProjectiles) {
+          projectiles.push(createProjectile('enemy', firingEnemy.laneIndex, firingEnemy.depth));
+        }
       });
     }
-    enemies = enemies.filter((enemy) => !enemy.reachedRim);
+
+    resolvePlayerShotsVsEnemies(projectiles, enemies, onEnemyKilled, levelTuning.aimAssistTolerance);
+    resolveEnemyShotsVsPlayer(player, projectiles, onPlayerHit);
+    resolveEnemyRimReachVsPlayer(player, enemies, onPlayerHit);
+
+    projectiles = projectiles.filter((projectile) => projectile.active);
+    enemies = enemies.filter((enemy) => enemy.hp > 0 && !enemy.reachedRim);
+
+    if (killsThisLevel >= levelKillQuota) {
+      const bonus = LEVEL_CLEAR_BONUS_PER_LEVEL * level;
+      score += bonus;
+      setLevelClearBonus(bonus);
+      setState(GameStates.LEVEL_CLEAR);
+    }
   }
 }
 
+function onEnemyKilled(enemy) {
+  score += SCORE_BY_ENEMY_TYPE[enemy.type] ?? 0;
+  killsThisLevel += 1;
+}
+
+// Clears all enemies and enemy projectiles (player shots are left alone -
+// they aren't a threat). No score for blaster kills; it's a panic button,
+// not a scoring strategy.
+function activateBlaster() {
+  enemies = [];
+  projectiles = projectiles.filter((projectile) => projectile.owner !== 'enemy');
+  blasterFlashMs = BLASTER_FLASH_DURATION_MS;
+  player.invulnerabilityMs = Math.max(player.invulnerabilityMs, BLASTER_INVULN_MS);
+  playBlaster();
+}
+
+function onPlayerHit() {
+  player.isAlive = false;
+  player.lives -= 1;
+  setState(player.lives > 0 ? GameStates.PLAYER_DEATH : GameStates.GAME_OVER);
+}
+
+function advanceLevel() {
+  level += 1;
+  levelTuning = computeLevelTuning(activeProfile, level);
+  spawnDirector = createSpawnDirector(levelTuning);
+  enemies = [];
+  projectiles = [];
+  killsThisLevel = 0;
+  levelKillQuota = computeKillQuota(level);
+  player.blasterCharges = activeProfile.blasterChargeStart;
+}
+
 function startGame() {
-  player = createPlayer();
+  activeProfile = getProfile(getSelectedProfileName());
+  player = createPlayer(activeProfile);
   projectiles = [];
   enemies = [];
-  spawnDirector = createSpawnDirector();
+  score = 0;
+  level = 1;
+  levelTuning = computeLevelTuning(activeProfile, level);
+  spawnDirector = createSpawnDirector(levelTuning);
+  killsThisLevel = 0;
+  levelKillQuota = computeKillQuota(level);
+  blasterFlashMs = 0;
   setState(GameStates.LEVEL_START);
   setState(GameStates.PLAYING);
 }

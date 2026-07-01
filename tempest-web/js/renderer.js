@@ -2,7 +2,7 @@
 // the boot/title screen isn't a blank rectangle. Entity/HUD rendering layers
 // are added in their respective phases.
 
-import { GAME_WIDTH, GAME_HEIGHT, LANE_COUNT, RIM_RADIUS } from './config.js';
+import { GAME_WIDTH, GAME_HEIGHT, LANE_COUNT, RIM_RADIUS, BLASTER_FLASH_DURATION_MS } from './config.js';
 import { getRimPosition } from './geometry.js';
 
 let ctx = null;
@@ -14,7 +14,7 @@ export function initRenderer(canvas) {
   return ctx;
 }
 
-export function render(_state, player, projectiles, enemies) {
+export function render(_state, player, projectiles, enemies, blasterFlashMs) {
   if (!ctx) return;
 
   ctx.fillStyle = '#000000';
@@ -24,6 +24,15 @@ export function render(_state, player, projectiles, enemies) {
   drawPlayer(player);
   drawEnemies(enemies);
   drawProjectiles(projectiles);
+  drawBlasterFlash(blasterFlashMs);
+}
+
+function drawBlasterFlash(blasterFlashMs) {
+  if (!blasterFlashMs || blasterFlashMs <= 0) return;
+
+  const alpha = Math.min(1, blasterFlashMs / BLASTER_FLASH_DURATION_MS) * 0.6;
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 }
 
 function drawPlaceholderTube() {
@@ -99,7 +108,7 @@ function drawEnemies(enemies) {
 }
 
 function drawPlayer(player) {
-  if (!player) return;
+  if (!player || !player.isAlive) return;
 
   const cx = GAME_WIDTH / 2;
   const cy = GAME_HEIGHT / 2;
@@ -109,6 +118,7 @@ function drawPlayer(player) {
   ctx.save();
   ctx.translate(pos.x, pos.y);
   ctx.rotate(angleToCenter);
+  ctx.globalAlpha = player.invulnerabilityMs > 0 ? 0.5 : 1;
   ctx.fillStyle = '#ffee33';
   ctx.beginPath();
   ctx.moveTo(14, 0);

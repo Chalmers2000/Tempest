@@ -23,7 +23,33 @@
       <p class="controls-hint">
         Move mouse left/right to rotate &middot; Left click to shoot &middot; Space = Super Blaster
       </p>
+
+      <div id="difficultyPanel" class="difficulty-panel">
+        <div id="profileSelector" class="profile-selector">
+          <button type="button" class="profile-button" data-profile="Relaxed">Relaxed</button>
+          <button type="button" class="profile-button" data-profile="Standard">Standard</button>
+          <button type="button" class="profile-button" data-profile="Arcade">Arcade</button>
+          <button type="button" class="profile-button" data-profile="Custom">Custom</button>
+        </div>
+
+        <div id="customPanel" class="custom-panel hidden">
+          <label class="custom-slider">
+            Enemy Speed
+            <input type="range" id="customEnemySpeed" min="0.5" max="1.6" step="0.05" />
+          </label>
+          <label class="custom-slider">
+            Spawn Rate
+            <input type="range" id="customSpawnRate" min="0.5" max="1.6" step="0.05" />
+          </label>
+        </div>
+      </div>
+
       <p class="start-hint">Click to Start</p>
+    </div>
+
+    <div id="levelClearOverlay" class="overlay hidden">
+      <h1>LEVEL CLEAR</h1>
+      <p id="levelClearBonus">Bonus: +0</p>
     </div>
 
     <div id="gameOverOverlay" class="overlay hidden">

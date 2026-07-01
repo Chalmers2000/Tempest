@@ -88,6 +88,54 @@ html, body {
   animation: pulse 1.4s ease-in-out infinite;
 }
 
+.difficulty-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.profile-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.profile-button {
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--hud-color);
+  background: rgba(51, 255, 240, 0.08);
+  border: 1px solid rgba(51, 255, 240, 0.5);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.profile-button:hover {
+  background: rgba(51, 255, 240, 0.18);
+}
+
+.profile-button.active {
+  background: var(--neon-cyan);
+  color: #05060a;
+  font-weight: bold;
+}
+
+.custom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--neon-cyan);
+}
+
+.custom-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .hidden {
   display: none !important;
 }

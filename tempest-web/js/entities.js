@@ -1,12 +1,13 @@
 // Entity factories/models: player, enemies (crawler/jumper/shooter), and
-// projectiles.
+// projectiles. Player/enemy factories bake in difficulty-profile-derived
+// tuning at creation time so update functions don't need a profile threaded
+// through every call.
 
 import { wrapLane } from './geometry.js';
 import {
   LANE_COUNT,
   RIM_RADIUS,
   START_LIVES,
-  START_BLASTER_CHARGES,
   PLAYER_FIRE_COOLDOWN_MS,
   PLAYER_PROJECTILE_SPEED,
   ENEMY_PROJECTILE_SPEED,
@@ -18,17 +19,20 @@ import {
   MAX_LANE_STEPS_PER_FRAME,
 } from './config.js';
 
-export function createPlayer() {
+export function createPlayer(profile) {
   return {
     laneIndex: 0,
     lives: START_LIVES,
-    shootCooldownMs: PLAYER_FIRE_COOLDOWN_MS,
+    shootCooldownMs: PLAYER_FIRE_COOLDOWN_MS * profile.playerFireCooldownScale,
     shootTimerMs: 0,
-    blasterCharges: START_BLASTER_CHARGES,
+    blasterCharges: profile.blasterChargeStart,
     isAlive: true,
     respawnTimerMs: 0,
     invulnerabilityMs: 0,
     turnAccumulator: 0,
+    // Higher sensitivity scale = less mouse travel needed per lane step.
+    laneStepThreshold: LANE_STEP_THRESHOLD / profile.laneStepSensitivityScale,
+    respawnInvulnMs: profile.respawnInvulnerabilityMs,
   };
 }
 
@@ -39,14 +43,14 @@ export function updatePlayerMovement(player, deltaX) {
   player.turnAccumulator -= deltaX * MOUSE_SENSITIVITY;
 
   let steps = 0;
-  while (Math.abs(player.turnAccumulator) >= LANE_STEP_THRESHOLD && steps < MAX_LANE_STEPS_PER_FRAME) {
+  while (Math.abs(player.turnAccumulator) >= player.laneStepThreshold && steps < MAX_LANE_STEPS_PER_FRAME) {
     const direction = player.turnAccumulator > 0 ? 1 : -1;
     player.laneIndex = wrapLane(player.laneIndex + direction, LANE_COUNT);
-    player.turnAccumulator -= direction * LANE_STEP_THRESHOLD;
+    player.turnAccumulator -= direction * player.laneStepThreshold;
     steps += 1;
   }
 
-  const maxAccum = LANE_STEP_THRESHOLD * MAX_LANE_STEPS_PER_FRAME;
+  const maxAccum = player.laneStepThreshold * MAX_LANE_STEPS_PER_FRAME;
   player.turnAccumulator = Math.max(-maxAccum, Math.min(maxAccum, player.turnAccumulator));
 }
 
@@ -61,6 +65,13 @@ export function tryConsumePlayerShot(player) {
   return true;
 }
 
+// Returns true and decrements charges if the player had one to spend.
+export function tryConsumeBlasterCharge(player) {
+  if (player.blasterCharges <= 0) return false;
+  player.blasterCharges -= 1;
+  return true;
+}
+
 let nextEnemyId = 1;
 
 // Enemies spawn near center (depth 0) and crawl outward toward the rim.
@@ -72,16 +83,22 @@ const ENEMY_SPEED_SCALE_BY_TYPE = {
   shooter: 0.75,
 };
 
-export function createEnemy(type, laneIndex) {
+const MIN_SHOOTER_FIRE_INTERVAL_MS = 400;
+
+// speedMultiplier and fireRateMultiplier come from the active difficulty
+// profile + current level (see main.js's computeLevelTuning).
+export function createEnemy(type, laneIndex, speedMultiplier = 1, fireRateMultiplier = 1) {
   return {
     id: nextEnemyId++,
     type,
     laneIndex,
     depth: 0,
-    speed: ENEMY_BASE_SPEED * (ENEMY_SPEED_SCALE_BY_TYPE[type] ?? 1),
+    speed: ENEMY_BASE_SPEED * (ENEMY_SPEED_SCALE_BY_TYPE[type] ?? 1) * speedMultiplier,
     hp: 1,
+    jumpIntervalMs: JUMPER_JUMP_INTERVAL_MS,
     jumpTimerMs: type === 'jumper' ? JUMPER_JUMP_INTERVAL_MS : undefined,
-    fireTimerMs: type === 'shooter' ? SHOOTER_FIRE_INTERVAL_MS : undefined,
+    fireIntervalMs: Math.max(MIN_SHOOTER_FIRE_INTERVAL_MS, SHOOTER_FIRE_INTERVAL_MS / fireRateMultiplier),
+    fireTimerMs: type === 'shooter' ? SHOOTER_FIRE_INTERVAL_MS / fireRateMultiplier : undefined,
     reachedRim: false,
   };
 }
@@ -94,7 +111,7 @@ export function updateEnemy(enemy, dt, onFire) {
   if (enemy.type === 'jumper') {
     enemy.jumpTimerMs -= dt;
     if (enemy.jumpTimerMs <= 0) {
-      enemy.jumpTimerMs += JUMPER_JUMP_INTERVAL_MS;
+      enemy.jumpTimerMs += enemy.jumpIntervalMs;
       const direction = Math.random() < 0.5 ? -1 : 1;
       enemy.laneIndex = wrapLane(enemy.laneIndex + direction, LANE_COUNT);
     }
@@ -103,14 +120,14 @@ export function updateEnemy(enemy, dt, onFire) {
   if (enemy.type === 'shooter') {
     enemy.fireTimerMs -= dt;
     if (enemy.fireTimerMs <= 0) {
-      enemy.fireTimerMs += SHOOTER_FIRE_INTERVAL_MS;
+      enemy.fireTimerMs += enemy.fireIntervalMs;
       onFire?.(enemy);
     }
   }
 
   if (enemy.depth >= RIM_RADIUS) {
     enemy.depth = RIM_RADIUS;
-    enemy.reachedRim = true; // Phase 5 collision will turn this into player damage
+    enemy.reachedRim = true; // collision.js turns this into player damage
   }
 }
 
@@ -133,7 +150,16 @@ export function updateProjectile(projectile, dt) {
 
   if (projectile.owner === 'player' && projectile.depth <= 0) {
     projectile.active = false;
-  } else if (projectile.owner === 'enemy' && projectile.depth >= RIM_RADIUS) {
-    projectile.active = false; // Phase 5 collision will turn this into a hit
   }
+  // Enemy projectiles are deactivated by collision.js when they reach the
+  // rim - that's also where the hit/miss decision against the player lives.
+}
+
+export function updatePlayerInvulnerability(player, dt) {
+  player.invulnerabilityMs = Math.max(0, player.invulnerabilityMs - dt);
+}
+
+export function respawnPlayer(player) {
+  player.isAlive = true;
+  player.invulnerabilityMs = player.respawnInvulnMs;
 }
