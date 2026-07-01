@@ -37,6 +37,8 @@ import {
   getDeltaX,
   consumeClickEdge,
   consumeSpaceEdge,
+  consumePauseEdge,
+  consumeResumeEdge,
   requestPointerLock,
   isFireHeld,
 } from './input.js';
@@ -162,6 +164,8 @@ function update(dt) {
   const deltaX = getDeltaX();
   const clicked = consumeClickEdge();
   const spacePressed = consumeSpaceEdge();
+  const pausePressed = consumePauseEdge();
+  const resumePressed = consumeResumeEdge();
 
   const state = getState();
 
@@ -175,6 +179,13 @@ function update(dt) {
   if (state === GameStates.GAME_OVER) {
     if (clicked) {
       startGame();
+    }
+    return;
+  }
+
+  if (state === GameStates.PAUSED) {
+    if (resumePressed) {
+      setState(GameStates.PLAYING);
     }
     return;
   }
@@ -196,6 +207,11 @@ function update(dt) {
   }
 
   if (state === GameStates.PLAYING) {
+    if (pausePressed) {
+      setState(GameStates.PAUSED);
+      return;
+    }
+
     updatePlayerMovement(player, deltaX);
     updatePlayerCooldown(player, dt);
     updatePlayerInvulnerability(player, dt);

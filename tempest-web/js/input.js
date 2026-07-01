@@ -6,6 +6,8 @@ let attachedTarget = null;
 let deltaXAccum = 0;
 let clickEdge = false;
 let spaceEdge = false;
+let pauseEdge = false;
+let resumeEdge = false;
 let mouseHeld = false;
 
 function handleMouseMove(e) {
@@ -29,6 +31,10 @@ function handleKeyDown(e) {
   if (e.code === 'Space' && !e.repeat) {
     spaceEdge = true;
     e.preventDefault();
+  } else if (e.code === 'KeyP' && !e.repeat) {
+    pauseEdge = true;
+  } else if (e.code === 'Escape' && !e.repeat) {
+    resumeEdge = true;
   }
 }
 
@@ -71,6 +77,18 @@ export function consumeClickEdge() {
 export function consumeSpaceEdge() {
   const value = spaceEdge;
   spaceEdge = false;
+  return value;
+}
+
+export function consumePauseEdge() {
+  const value = pauseEdge;
+  pauseEdge = false;
+  return value;
+}
+
+export function consumeResumeEdge() {
+  const value = resumeEdge;
+  resumeEdge = false;
   return value;
 }
 

@@ -15,9 +15,10 @@ No install step, no Python, no build tooling required.
 - **Move:** Mouse left/right (rotates around the tube's rim, wraps at the ends)
 - **Shoot:** Hold left mouse button (fires repeatedly, capped by cooldown)
 - **Super Blaster:** Space bar (clears enemies, enemy projectiles, and poles; limited charges, refills each level)
+- **Pause:** P (freezes the game; Esc resumes)
 - **Click** on the title/game-over screen starts/restarts a run
 
-The game requests Pointer Lock on click so mouse rotation is unbounded (not clamped at your monitor's edge). Press Escape to release it; clicking the canvas again re-acquires it.
+The game requests Pointer Lock when playing so mouse rotation is unbounded (not clamped at your monitor's edge). Pressing Escape releases the pointer lock as a side effect of the browser exiting it (in addition to resuming from pause); click the canvas again to re-acquire it.
 
 ## Difficulty Profiles
 
@@ -58,7 +59,7 @@ A toggle on the title screen ("Enemy Poles"), **off by default**. When enabled, 
 
 ## Known Limitations
 
-- Pause (P/Escape) and mute (M) are stubbed but not wired to input — the game currently always runs unpaused, and `tempest-web/js/audio.js`'s sound hooks are silent no-ops (called at the right moments, ready for real sound assets).
+- Mute (M) is stubbed but not wired to input — `tempest-web/js/audio.js`'s sound hooks are silent no-ops (called at the right moments, ready for real sound assets).
 - Single tube shape (circle); the original game varies tube geometry per level.
 - No gamepad support.
 
