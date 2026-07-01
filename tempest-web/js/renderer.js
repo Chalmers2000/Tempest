@@ -114,26 +114,59 @@ function drawEnemies(enemies) {
   for (const enemy of enemies) {
     const pos = getLaneCenterPosition(enemy.laneIndex, LANE_COUNT, cx, cy, toScreenRadius(enemy.depth, radius));
     const scale = toEntityScale(enemy.depth);
+    // Points the shape along its outward direction of travel (away from the
+    // vanishing point), the same way the player ship is rotated to face in.
+    const angleAway = Math.atan2(pos.y - cy, pos.x - cx);
+
     ctx.save();
     ctx.translate(pos.x, pos.y);
+    ctx.rotate(angleAway);
     ctx.scale(scale, scale);
+    ctx.lineWidth = 1.5;
 
     if (enemy.type === 'crawler') {
+      // Chevron arrowhead, tip leading outward - reads as "crawling forward".
       ctx.fillStyle = '#33ff66';
-      ctx.fillRect(-7, -7, 14, 14);
-    } else if (enemy.type === 'jumper') {
-      ctx.fillStyle = '#ffaa33';
+      ctx.strokeStyle = '#baffcf';
       ctx.beginPath();
-      ctx.moveTo(0, -10);
-      ctx.lineTo(10, 0);
-      ctx.lineTo(0, 10);
-      ctx.lineTo(-10, 0);
+      ctx.moveTo(11, 0);
+      ctx.lineTo(-6, 8);
+      ctx.lineTo(-1, 0);
+      ctx.lineTo(-6, -8);
       ctx.closePath();
       ctx.fill();
-    } else if (enemy.type === 'shooter') {
-      ctx.fillStyle = '#ff3355';
+      ctx.stroke();
+    } else if (enemy.type === 'jumper') {
+      // Bowtie/hourglass - the pinched waist reads as "can snap sideways".
+      ctx.fillStyle = '#ffaa33';
+      ctx.strokeStyle = '#ffe0b3';
       ctx.beginPath();
-      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.moveTo(-9, -9);
+      ctx.lineTo(9, -9);
+      ctx.lineTo(-9, 9);
+      ctx.lineTo(9, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (enemy.type === 'shooter') {
+      // Hexagonal turret with a bright core - communicates "armed".
+      ctx.fillStyle = '#ff3355';
+      ctx.strokeStyle = '#ffb3c0';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i += 1) {
+        const angle = (Math.PI / 3) * i;
+        const x = Math.cos(angle) * 10;
+        const y = Math.sin(angle) * 10;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffe6ea';
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fill();
     }
 
