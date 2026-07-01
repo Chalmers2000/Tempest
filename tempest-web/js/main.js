@@ -1,7 +1,8 @@
-// Phase 7: difficulty profiles + progression. The selected profile (Relaxed/
-// Standard/Arcade/Custom) drives player tuning, enemy speed/spawn scaling,
-// enemy-type unlock gating, and aim assist; level progression is a kill-quota
-// clear that ramps profile-scaled tuning further each level.
+// Main game loop and top-level orchestration. The selected difficulty
+// profile (Relaxed/Standard/Arcade/Custom) drives player tuning, enemy
+// speed/spawn scaling, enemy-type unlock gating, and aim assist; level
+// progression is a kill-quota clear that ramps profile-scaled tuning further
+// each level. See js/config.js and js/difficultyProfiles.js for tuning.
 
 import {
   FIXED_TIMESTEP_MS,
@@ -22,7 +23,7 @@ import { GameStates, setState, getState, getStateElapsedMs, onStateChange } from
 import { initRenderer, render } from './renderer.js';
 import { initUI, updateHUD, syncOverlaysToState, setFinalScore, setLevelClearBonus, getSelectedProfileName } from './ui.js';
 import { getProfile } from './difficultyProfiles.js';
-import { playBlaster } from './audio.js';
+import { playShoot, playEnemyDeath, playPlayerDeath, playBlaster } from './audio.js';
 import {
   attachInput,
   getDeltaX,
@@ -185,6 +186,7 @@ function update(dt) {
 
     if (isFireHeld() && tryConsumePlayerShot(player)) {
       projectiles.push(createProjectile('player', player.laneIndex));
+      playShoot();
     }
 
     if (spacePressed && tryConsumeBlasterCharge(player)) {
@@ -224,6 +226,7 @@ function update(dt) {
 function onEnemyKilled(enemy) {
   score += SCORE_BY_ENEMY_TYPE[enemy.type] ?? 0;
   killsThisLevel += 1;
+  playEnemyDeath();
 }
 
 // Clears all enemies and enemy projectiles (player shots are left alone -
@@ -240,6 +243,7 @@ function activateBlaster() {
 function onPlayerHit() {
   player.isAlive = false;
   player.lives -= 1;
+  playPlayerDeath();
   setState(player.lives > 0 ? GameStates.PLAYER_DEATH : GameStates.GAME_OVER);
 }
 

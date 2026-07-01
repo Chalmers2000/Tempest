@@ -4,7 +4,7 @@ export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const FIXED_TIMESTEP_MS = 1000 / 60;
 
-export const LANE_COUNT = 12;
+export const LANE_COUNT = 16;
 export const RIM_RADIUS = 360;
 
 export const START_LIVES = 3;

@@ -72,6 +72,17 @@ function initDifficultyPanel() {
 function selectProfile(name) {
   selectedProfileName = name;
   saveProfileName(name);
+
+  // Sync the Custom sliders to whichever preset was just picked, so if the
+  // user switches to Custom next, it starts from that preset's values
+  // instead of wherever the sliders were last left.
+  if (name !== 'Custom') {
+    const preset = DIFFICULTY_PROFILES[name];
+    elements.customEnemySpeed.value = preset.enemySpeedScale;
+    elements.customSpawnRate.value = preset.spawnRateScale;
+    saveCustomSliderValues();
+  }
+
   refreshDifficultyPanelUI();
 }
 
