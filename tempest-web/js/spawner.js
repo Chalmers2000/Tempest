@@ -2,8 +2,14 @@
 // and which enemy types are unlocked all come from the active difficulty
 // profile + current level (see main.js's computeLevelTuning).
 
-import { createEnemy } from './entities.js';
-import { LANE_COUNT, ENEMY_SPAWN_INTERVAL_MS } from './config.js';
+import { createEnemy, createPole } from './entities.js';
+import {
+  LANE_COUNT,
+  ENEMY_SPAWN_INTERVAL_MS,
+  POLE_MIN_LEVEL,
+  MAX_SIMULTANEOUS_POLES,
+  POLE_SPAWN_INTERVAL_MS,
+} from './config.js';
 
 const ENEMY_MIX = [
   ['crawler', 0.5],
@@ -51,4 +57,30 @@ function pickEnemyType(profile, level) {
     if (roll <= cumulative) return type;
   }
   return 'crawler';
+}
+
+// Enemy Poles (experimental). Only spawns from POLE_MIN_LEVEL on, caps how
+// many can be active at once, and never doubles up in the same lane.
+export function createPoleDirector() {
+  return {
+    timerMs: POLE_SPAWN_INTERVAL_MS,
+  };
+}
+
+export function updatePoleDirector(director, dt, poles, level) {
+  director.timerMs -= dt;
+  if (director.timerMs > 0) return;
+  director.timerMs += POLE_SPAWN_INTERVAL_MS;
+
+  if (level < POLE_MIN_LEVEL || poles.length >= MAX_SIMULTANEOUS_POLES) return;
+
+  const occupiedLanes = new Set(poles.map((pole) => pole.laneIndex));
+  const availableLanes = [];
+  for (let i = 0; i < LANE_COUNT; i += 1) {
+    if (!occupiedLanes.has(i)) availableLanes.push(i);
+  }
+  if (availableLanes.length === 0) return;
+
+  const laneIndex = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+  poles.push(createPole(laneIndex));
 }

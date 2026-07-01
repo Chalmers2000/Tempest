@@ -4,7 +4,7 @@ export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const FIXED_TIMESTEP_MS = 1000 / 60;
 
-export const LANE_COUNT = 16;
+export const LANE_COUNT = 19;
 export const RIM_RADIUS = 360;
 
 export const START_LIVES = 3;
@@ -42,3 +42,13 @@ export const SCORE_BY_ENEMY_TYPE = {
   jumper: 200,
   shooter: 300,
 };
+
+// Enemy Poles (experimental, toggle on the title screen): a growing white
+// line up a lane that shields any enemy within its current length from
+// player shots. Repeated shots into the lane (or a Super Blaster use) shrink
+// or clear it; it caps at the rim and just sits there until destroyed.
+export const POLE_MIN_LEVEL = 2;
+export const MAX_SIMULTANEOUS_POLES = 2;
+export const POLE_SPAWN_INTERVAL_MS = 6000;
+export const POLE_GROWTH_RATE = 45;
+export const POLE_SHRINK_PER_HIT = 90;

@@ -21,7 +21,15 @@ import {
 } from './config.js';
 import { GameStates, setState, getState, getStateElapsedMs, onStateChange } from './gameState.js';
 import { initRenderer, render } from './renderer.js';
-import { initUI, updateHUD, syncOverlaysToState, setFinalScore, setLevelClearBonus, getSelectedProfileName } from './ui.js';
+import {
+  initUI,
+  updateHUD,
+  syncOverlaysToState,
+  setFinalScore,
+  setLevelClearBonus,
+  getSelectedProfileName,
+  getPolesEnabled,
+} from './ui.js';
 import { getProfile } from './difficultyProfiles.js';
 import { playShoot, playEnemyDeath, playPlayerDeath, playBlaster } from './audio.js';
 import {
@@ -42,16 +50,24 @@ import {
   createProjectile,
   updateProjectile,
   updateEnemy,
+  updatePole,
   respawnPlayer,
 } from './entities.js';
-import { createSpawnDirector, updateSpawner } from './spawner.js';
-import { resolvePlayerShotsVsEnemies, resolveEnemyShotsVsPlayer, resolveEnemyRimReachVsPlayer } from './collision.js';
+import { createSpawnDirector, updateSpawner, createPoleDirector, updatePoleDirector } from './spawner.js';
+import {
+  resolvePlayerShotsVsEnemies,
+  resolveEnemyShotsVsPlayer,
+  resolveEnemyRimReachVsPlayer,
+  resolvePlayerShotsVsPoles,
+} from './collision.js';
 
 let player = null;
 let canvas = null;
 let projectiles = [];
 let enemies = [];
+let poles = [];
 let spawnDirector = null;
+let poleDirector = null;
 let score = 0;
 let level = 1;
 let blasterFlashMs = 0;
@@ -59,6 +75,7 @@ let activeProfile = null;
 let levelTuning = null;
 let killsThisLevel = 0;
 let levelKillQuota = 0;
+let polesEnabled = false;
 
 function boot() {
   canvas = document.getElementById('gameCanvas');
@@ -110,7 +127,7 @@ function startLoop() {
       blasterCharges: player ? player.blasterCharges : START_BLASTER_CHARGES,
       profileName: activeProfile ? activeProfile.name : getSelectedProfileName(),
     });
-    render(getState(), player, projectiles, enemies, blasterFlashMs);
+    render(getState(), player, projectiles, enemies, blasterFlashMs, poles);
     requestAnimationFrame(frame);
   }
 
@@ -207,12 +224,21 @@ function update(dt) {
       });
     }
 
-    resolvePlayerShotsVsEnemies(projectiles, enemies, onEnemyKilled, levelTuning.aimAssistTolerance);
+    if (polesEnabled) {
+      updatePoleDirector(poleDirector, dt, poles, level);
+      for (const pole of poles) {
+        updatePole(pole, dt);
+      }
+      resolvePlayerShotsVsPoles(projectiles, poles);
+    }
+
+    resolvePlayerShotsVsEnemies(projectiles, enemies, onEnemyKilled, levelTuning.aimAssistTolerance, poles);
     resolveEnemyShotsVsPlayer(player, projectiles, onPlayerHit);
     resolveEnemyRimReachVsPlayer(player, enemies, onPlayerHit);
 
     projectiles = projectiles.filter((projectile) => projectile.active);
     enemies = enemies.filter((enemy) => enemy.hp > 0 && !enemy.reachedRim);
+    poles = poles.filter((pole) => pole.active && pole.length > 0);
 
     if (killsThisLevel >= levelKillQuota) {
       const bonus = LEVEL_CLEAR_BONUS_PER_LEVEL * level;
@@ -229,11 +255,12 @@ function onEnemyKilled(enemy) {
   playEnemyDeath();
 }
 
-// Clears all enemies and enemy projectiles (player shots are left alone -
-// they aren't a threat). No score for blaster kills; it's a panic button,
-// not a scoring strategy.
+// Clears all enemies, enemy projectiles, and poles (player shots are left
+// alone - they aren't a threat). No score for blaster kills; it's a panic
+// button, not a scoring strategy.
 function activateBlaster() {
   enemies = [];
+  poles = [];
   projectiles = projectiles.filter((projectile) => projectile.owner !== 'enemy');
   blasterFlashMs = BLASTER_FLASH_DURATION_MS;
   player.invulnerabilityMs = Math.max(player.invulnerabilityMs, BLASTER_INVULN_MS);
@@ -253,6 +280,8 @@ function advanceLevel() {
   spawnDirector = createSpawnDirector(levelTuning);
   enemies = [];
   projectiles = [];
+  poles = [];
+  poleDirector = createPoleDirector();
   killsThisLevel = 0;
   levelKillQuota = computeKillQuota(level);
   player.blasterCharges = activeProfile.blasterChargeStart;
@@ -263,6 +292,9 @@ function startGame() {
   player = createPlayer(activeProfile);
   projectiles = [];
   enemies = [];
+  poles = [];
+  polesEnabled = getPolesEnabled();
+  poleDirector = createPoleDirector();
   score = 0;
   level = 1;
   levelTuning = computeLevelTuning(activeProfile, level);

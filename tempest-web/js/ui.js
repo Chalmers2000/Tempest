@@ -12,8 +12,11 @@ import {
   saveCustomOverrides,
 } from './difficultyProfiles.js';
 
+const POLES_STORAGE_KEY = 'tempest.polesEnabled';
+
 let elements = null;
 let selectedProfileName = 'Standard';
+let polesEnabled = false;
 
 export function initUI() {
   elements = {
@@ -33,6 +36,7 @@ export function initUI() {
     customPanel: document.getElementById('customPanel'),
     customEnemySpeed: document.getElementById('customEnemySpeed'),
     customSpawnRate: document.getElementById('customSpawnRate'),
+    polesToggle: document.getElementById('polesToggle'),
   };
 
   // The difficulty panel sits inside the title overlay, and any click on the
@@ -66,7 +70,34 @@ function initDifficultyPanel() {
   elements.customEnemySpeed.addEventListener('input', saveCustomSliderValues);
   elements.customSpawnRate.addEventListener('input', saveCustomSliderValues);
 
+  polesEnabled = loadPolesEnabled();
+  elements.polesToggle.checked = polesEnabled;
+  elements.polesToggle.addEventListener('change', () => {
+    polesEnabled = elements.polesToggle.checked;
+    savePolesEnabled(polesEnabled);
+  });
+
   refreshDifficultyPanelUI();
+}
+
+function loadPolesEnabled() {
+  try {
+    return localStorage.getItem(POLES_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function savePolesEnabled(value) {
+  try {
+    localStorage.setItem(POLES_STORAGE_KEY, String(value));
+  } catch {
+    // localStorage unavailable - toggle just won't persist.
+  }
+}
+
+export function getPolesEnabled() {
+  return polesEnabled;
 }
 
 function selectProfile(name) {

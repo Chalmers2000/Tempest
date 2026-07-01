@@ -17,6 +17,7 @@ import {
   MOUSE_SENSITIVITY,
   LANE_STEP_THRESHOLD,
   MAX_LANE_STEPS_PER_FRAME,
+  POLE_GROWTH_RATE,
 } from './config.js';
 
 export function createPlayer(profile) {
@@ -162,4 +163,17 @@ export function updatePlayerInvulnerability(player, dt) {
 export function respawnPlayer(player) {
   player.isAlive = true;
   player.invulnerabilityMs = player.respawnInvulnMs;
+}
+
+// A pole grows from the center (length 0) toward the rim (length RIM_RADIUS).
+export function createPole(laneIndex) {
+  return {
+    laneIndex,
+    length: 0,
+    active: true,
+  };
+}
+
+export function updatePole(pole, dt) {
+  pole.length = Math.min(RIM_RADIUS, pole.length + POLE_GROWTH_RATE * (dt / 1000));
 }

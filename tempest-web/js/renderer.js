@@ -44,13 +44,14 @@ function toEntityScale(depth) {
   return MIN_ENTITY_SCALE + (1 - MIN_ENTITY_SCALE) * t;
 }
 
-export function render(_state, player, projectiles, enemies, blasterFlashMs) {
+export function render(_state, player, projectiles, enemies, blasterFlashMs, poles) {
   if (!ctx) return;
 
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
   drawPlaceholderTube(player);
+  drawPoles(poles);
   drawPlayer(player);
   drawEnemies(enemies);
   drawProjectiles(projectiles);
@@ -87,6 +88,22 @@ function drawPlaceholderTube(player) {
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  }
+}
+
+function drawPoles(poles) {
+  if (!poles || poles.length === 0) return;
+
+  const { cx, cy, radius } = getTubeGeometry();
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  for (const pole of poles) {
+    const tip = getLaneCenterPosition(pole.laneIndex, LANE_COUNT, cx, cy, toScreenRadius(pole.length, radius));
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(tip.x, tip.y);
     ctx.stroke();
   }
 }
